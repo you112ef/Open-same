@@ -16,6 +16,7 @@ type Config struct {
 	Redis       RedisConfig
 	RabbitMQ    RabbitMQConfig
 	JWT         JWTConfig
+	AI          *AIConfig
 	RateLimit   float64
 	Logging     LoggingConfig
 }
@@ -106,7 +107,8 @@ func Load() *Config {
 			RefreshTokenTTL: getEnvAsDuration("JWT_REFRESH_TTL", 7*24*time.Hour),
 			Issuer:          getEnv("JWT_ISSUER", "open-same"),
 		},
-		RateLimit: getEnvAsFloat("RATE_LIMIT", 100.0),
+		AI:          LoadAIConfig(),
+		RateLimit:   getEnvAsFloat("RATE_LIMIT", 100.0),
 		Logging: LoggingConfig{
 			Level:      getEnv("LOG_LEVEL", "info"),
 			Format:     getEnv("LOG_FORMAT", "json"),
