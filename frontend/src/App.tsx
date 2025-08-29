@@ -1,45 +1,43 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { Toaster } from 'sonner'
-
-// Layout Components
-import { Layout } from '@components/layout/Layout'
-import { AuthLayout } from '@components/layout/AuthLayout'
-
-// Pages
-import { HomePage } from '@pages/HomePage'
+import { Toaster } from 'react-hot-toast'
+import { AuthProvider } from '@contexts/AuthContext'
+import { ThemeProvider } from '@contexts/ThemeContext'
+import { CollaborationProvider } from '@contexts/CollaborationContext'
 import { DashboardPage } from '@pages/DashboardPage'
-import { EditorPage } from '@pages/EditorPage'
 import { LoginPage } from '@pages/LoginPage'
 import { RegisterPage } from '@pages/RegisterPage'
+import { EditorPage } from '@pages/EditorPage'
 import { ProfilePage } from '@pages/ProfilePage'
-import { ExplorePage } from '@pages/ExplorePage'
-import { TemplatesPage } from '@pages/TemplatesPage'
-import { SettingsPage } from '@pages/SettingsPage'
-
-// Context and Hooks
-import { AuthProvider, useAuth } from '@hooks/useAuth'
-import { ThemeProvider } from '@hooks/useTheme'
-import { CollaborationProvider } from '@hooks/useCollaboration'
+import { MobileNavigation } from '@components/navigation/MobileNavigation'
+import { DesktopNavigation } from '@components/navigation/DesktopNavigation'
+import { useAuth } from '@hooks/useAuth'
+import { useMediaQuery } from '@hooks/useMediaQuery'
 
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 1,
+      refetchOnWindowFocus: false,
     },
   },
 })
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth()
+  const { user, isLoading } = useAuth()
   
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-sm sm:text-base text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
   
   if (!user) {
@@ -49,12 +47,19 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>
 }
 
-// Public Route Component (redirects if already authenticated)
+// Public Route Component
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth()
+  const { user, isLoading } = useAuth()
   
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-sm sm:text-base text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
   
   if (user) {
@@ -64,82 +69,88 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>
 }
 
-function AppRoutes() {
+// Main App Layout
+const AppLayout: React.FC = () => {
+  const { user } = useAuth()
+  const isMobile = useMediaQuery('(max-width: 768px)')
+  
+  if (!user) return null
+  
   return (
-    <Router>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/explore" element={<ExplorePage />} />
-        <Route path="/templates" element={<TemplatesPage />} />
-        
-        {/* Auth Routes */}
-        <Route path="/login" element={
-          <PublicRoute>
-            <AuthLayout>
-              <LoginPage />
-            </AuthLayout>
-          </PublicRoute>
-        } />
-        <Route path="/register" element={
-          <PublicRoute>
-            <AuthLayout>
-              <RegisterPage />
-            </AuthLayout>
-          </PublicRoute>
-        } />
-        
-        {/* Protected Routes */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Layout>
-              <DashboardPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/editor/:id?" element={
-          <ProtectedRoute>
-            <Layout>
-              <EditorPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/profile" element={
-          <ProtectedRoute>
-            <Layout>
-              <ProfilePage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <Layout>
-              <SettingsPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        
-        {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+    <div className="min-h-screen bg-gray-50">
+      {isMobile ? <MobileNavigation /> : <DesktopNavigation />}
+      <main className="pt-0">
+        <Routes>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/editor" element={<EditorPage />} />
+          <Route path="/editor/:id" element={<EditorPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </main>
+    </div>
   )
 }
 
-function App() {
+// Main App Component
+const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
           <CollaborationProvider>
-            <AppRoutes />
-            <Toaster 
-              position="top-right"
-              richColors
-              closeButton
-              duration={4000}
-            />
-            <ReactQueryDevtools initialIsOpen={false} />
+            <Router>
+              <div className="App">
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/login" element={
+                    <PublicRoute>
+                      <LoginPage />
+                    </PublicRoute>
+                  } />
+                  <Route path="/register" element={
+                    <PublicRoute>
+                      <RegisterPage />
+                    </PublicRoute>
+                  } />
+                  
+                  {/* Protected Routes */}
+                  <Route path="/*" element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  } />
+                </Routes>
+                
+                {/* Global Toast Notifications */}
+                <Toaster
+                  position={window.innerWidth < 768 ? "top-center" : "top-right"}
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: '#363636',
+                      color: '#fff',
+                      fontSize: '14px',
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      maxWidth: '90vw',
+                    },
+                    success: {
+                      iconTheme: {
+                        primary: '#10B981',
+                        secondary: '#fff',
+                      },
+                    },
+                    error: {
+                      iconTheme: {
+                        primary: '#EF4444',
+                        secondary: '#fff',
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </Router>
           </CollaborationProvider>
         </AuthProvider>
       </ThemeProvider>

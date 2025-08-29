@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3B82F6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Open-Same" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileColor" content="#3B82F6" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Open-Same - AI-powered collaborative content creation platform. Create, collaborate, and generate content with AI assistance. Same.AI replica with open-source code." />
+    <meta name="keywords" content="AI, content creation, collaboration, open source, Same.AI, document editor, code generator, diagram creator, template builder" />
+    <meta name="author" content="Open-Same Team" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Open-Same - AI-Powered Content Creation" />
+    <meta property="og:description" content="AI-powered collaborative content creation platform. Create, collaborate, and generate content with AI assistance." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://open-same.dev" />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Open-Same - AI-Powered Content Creation" />
+    <meta name="twitter:description" content="AI-powered collaborative content creation platform. Create, collaborate, and generate content with AI assistance." />
+    <meta name="twitter:image" content="/og-image.png" />
+    
+    <!-- Mobile App Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#3B82F6" />
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/src/main.tsx" as="script" />
+    <link rel="preload" href="/src/index.css" as="style" />
+    
+    <title>Open-Same - AI-Powered Content Creation Platform</title>
+    
+    <!-- Mobile-specific CSS -->
+    <style>
+      /* Prevent horizontal scroll on mobile */
+      html, body {
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Mobile viewport height fix */
+      :root {
+        --vh: 1vh;
+      }
+      
+      /* Safe area support for notched devices */
+      @supports (padding: max(0px)) {
+        .safe-area-top {
+          padding-top: max(env(safe-area-inset-top), 1rem);
+        }
+        .safe-area-bottom {
+          padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+        }
+        .safe-area-left {
+          padding-left: max(env(safe-area-inset-left), 1rem);
+        }
+        .safe-area-right {
+          padding-right: max(env(safe-area-inset-right), 1rem);
+        }
+      }
+      
+      /* Touch-friendly button sizing */
+      button, [role="button"] {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      /* Smooth scrolling for mobile */
+      * {
+        scroll-behavior: smooth;
+      }
+      
+      /* Loading animation */
+      .loading-spinner {
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #3B82F6;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- Loading state for mobile -->
+      <div class="loading-container" style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-family: 'Inter', sans-serif;
+      ">
+        <div style="text-align: center;">
+          <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
+          <h1 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">
+            Open-Same
+          </h1>
+          <p style="font-size: 0.875rem; opacity: 0.8;">
+            Loading AI-powered workspace...
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+      
+      // Mobile viewport height fix
+      function setVH() {
+        let vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      }
+      
+      setVH();
+      window.addEventListener('resize', setVH);
+      window.addEventListener('orientationchange', setVH);
+      
+      // Prevent zoom on double tap (iOS)
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', function (event) {
+        const now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, false);
+    </script>
+  </body>
+</html>
