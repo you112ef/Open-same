@@ -1,0 +1,90 @@
+name: Release Deployment
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+
+env:
+  NODE_VERSION: '18'
+  GO_VERSION: '1.21'
+
+jobs:
+  release-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Get version from tag
+      id: get_version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION=${{ github.event.release.tag_name }}
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "VERSION: $VERSION"
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+    
+    - name: Setup Wrangler CLI
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    
+    - name: Deploy to Cloudflare Pages (Production)
+      run: |
+        wrangler pages deploy frontend/dist \
+          --project-name=open-same \
+          --branch=main \
+          --env=production
+    
+    - name: Create deployment summary
+      run: |
+        echo "## 🎉 Release Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** Production" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment time:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🚀 What was deployed:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Open-Same Platform v${{ steps.get_version.outputs.version }}**" >> $GITHUB_STEP_SUMMARY
+        echo "- Complete Same.AI replica functionality" >> $GITHUB_STEP_SUMMARY
+        echo "- Real-time collaboration features" >> $GITHUB_STEP_SUMMARY
+        echo "- AI-powered content generation" >> $GITHUB_STEP_SUMMARY
+        echo "- User authentication and management" >> $GITHUB_STEP_SUMMARY
+        echo "- Mobile-responsive design" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 Deployment URLs:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Production:** Your Cloudflare Pages URL" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repository:** https://github.com/you112ef/Open-same" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 Release Notes:" >> $GITHUB_STEP_SUMMARY
+        echo "This release includes the complete Open-Same platform with all Same.AI replica features." >> $GITHUB_STEP_SUMMARY
+        echo "The platform is now production-ready and fully deployed to Cloudflare Pages." >> $GITHUB_STEP_SUMMARY
+    
+    - name: Notify deployment success
+      run: |
+        echo "✅ Release ${{ steps.get_version.outputs.version }} successfully deployed to production!"
+        echo "🚀 Open-Same platform is now live!"

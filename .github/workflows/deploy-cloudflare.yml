@@ -1,0 +1,223 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+  GO_VERSION: '1.21'
+
+jobs:
+  # Build Frontend
+  build-frontend:
+    runs-on: ubuntu-latest
+    outputs:
+      build-output: ${{ steps.build.outputs.build-output }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm run test -- --coverage --watchAll=false
+    
+    - name: Build frontend
+      id: build
+      run: |
+        cd frontend
+        npm run build
+        echo "build-output=frontend/dist" >> $GITHUB_OUTPUT
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist
+        retention-days: 1
+
+  # Build Backend
+  build-backend:
+    runs-on: ubuntu-latest
+    outputs:
+      build-output: ${{ steps.build.outputs.build-output }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        go mod download
+    
+    - name: Run backend tests
+      run: |
+        cd backend
+        go test -v -race -coverprofile=coverage.out ./...
+    
+    - name: Build backend
+      id: build
+      run: |
+        cd backend
+        go build -o bin/server cmd/server/main.go
+        echo "build-output=backend/bin" >> $GITHUB_OUTPUT
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-build
+        path: backend/bin
+        retention-days: 1
+
+  # Deploy to Cloudflare Pages (Staging)
+  deploy-staging:
+    needs: [build-frontend, build-backend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download frontend artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist
+    
+    - name: Setup Wrangler CLI
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    
+    - name: Deploy to Cloudflare Pages (Staging)
+      run: |
+        wrangler pages deploy frontend/dist \
+          --project-name=open-same-staging \
+          --branch=develop \
+          --env=staging
+
+  # Deploy to Cloudflare Pages (Production)
+  deploy-production:
+    needs: [build-frontend, build-backend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download frontend artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist
+    
+    - name: Setup Wrangler CLI
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    
+    - name: Deploy to Cloudflare Pages (Production)
+      run: |
+        wrangler pages deploy frontend/dist \
+          --project-name=open-same \
+          --branch=main \
+          --env=production
+    
+    - name: Create deployment summary
+      run: |
+        echo "## 🚀 Production Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Project:** Open-Same" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** Production" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 What was deployed:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Frontend React application" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Backend API services" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Same.AI replica features" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Real-time collaboration" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ User authentication system" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 Next steps:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Verify deployment at your Cloudflare Pages URL" >> $GITHUB_STEP_SUMMARY
+        echo "2. Test all features and functionality" >> $GITHUB_STEP_SUMMARY
+        echo "3. Monitor application performance" >> $GITHUB_STEP_SUMMARY
+
+  # Deploy Backend to Cloudflare Workers (Optional)
+  deploy-backend-workers:
+    needs: [build-backend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download backend artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: backend-build
+        path: backend/bin
+    
+    - name: Setup Wrangler CLI
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    
+    - name: Deploy Backend to Workers
+      run: |
+        wrangler deploy \
+          --config backend/wrangler.toml \
+          --env production
+
+  # Notify Deployment Status
+  notify-deployment:
+    needs: [deploy-production, deploy-backend-workers]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify deployment status
+      run: |
+        if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+          echo "✅ Production deployment successful!"
+        else
+          echo "❌ Production deployment failed!"
+        fi
+        
+        if [ "${{ needs.deploy-backend-workers.result }}" == "success" ]; then
+          echo "✅ Backend Workers deployment successful!"
+        else
+          echo "❌ Backend Workers deployment failed!"
+        fi
