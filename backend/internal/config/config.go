@@ -4,10 +4,9 @@ import (
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
+// Config holds all configuration for the application
 type Config struct {
 	Environment string
 	Version     string
@@ -16,18 +15,20 @@ type Config struct {
 	Redis       RedisConfig
 	RabbitMQ    RabbitMQConfig
 	JWT         JWTConfig
-	AI          *AIConfig
+	AI          AIConfig
 	RateLimit   float64
-	Logging     LoggingConfig
 }
 
+// ServerConfig holds server-specific configuration
 type ServerConfig struct {
 	Port         int
 	Host         string
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
 }
 
+// DatabaseConfig holds database connection configuration
 type DatabaseConfig struct {
 	Host     string
 	Port     int
@@ -35,9 +36,9 @@ type DatabaseConfig struct {
 	User     string
 	Password string
 	SSLMode  string
-	MaxConns int
 }
 
+// RedisConfig holds Redis connection configuration
 type RedisConfig struct {
 	Host     string
 	Port     int
@@ -45,32 +46,34 @@ type RedisConfig struct {
 	DB       int
 }
 
+// RabbitMQConfig holds RabbitMQ connection configuration
 type RabbitMQConfig struct {
 	Host     string
 	Port     int
 	User     string
 	Password string
-	VHost    string
 }
 
+// JWTConfig holds JWT configuration
 type JWTConfig struct {
 	Secret           string
-	AccessTokenTTL   time.Duration
-	RefreshTokenTTL  time.Duration
-	Issuer           string
+	ExpirationHours int
+	RefreshHours     int
 }
 
-type LoggingConfig struct {
-	Level      string
-	Format     string
-	OutputPath string
+// AIConfig holds AI service configuration
+type AIConfig struct {
+	OpenAIKey      string
+	OpenAIModel    string
+	AnthropicKey   string
+	AnthropicModel string
+	MaxTokens      int
+	Temperature    float64
 }
 
+// Load loads configuration from environment variables
 func Load() *Config {
-	// Load .env file if it exists
-	godotenv.Load()
-
-	config := &Config{
+	return &Config{
 		Environment: getEnv("ENVIRONMENT", "development"),
 		Version:     getEnv("VERSION", "1.0.0"),
 		Server: ServerConfig{
@@ -78,6 +81,7 @@ func Load() *Config {
 			Host:         getEnv("API_HOST", "0.0.0.0"),
 			ReadTimeout:  getEnvAsDuration("READ_TIMEOUT", 15*time.Second),
 			WriteTimeout: getEnvAsDuration("WRITE_TIMEOUT", 15*time.Second),
+			IdleTimeout:  getEnvAsDuration("IDLE_TIMEOUT", 60*time.Second),
 		},
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
@@ -86,7 +90,6 @@ func Load() *Config {
 			User:     getEnv("DB_USER", "opensame"),
 			Password: getEnv("DB_PASSWORD", "opensame_password"),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
-			MaxConns: getEnvAsInt("DB_MAX_CONNS", 100),
 		},
 		Redis: RedisConfig{
 			Host:     getEnv("REDIS_HOST", "localhost"),
@@ -99,26 +102,25 @@ func Load() *Config {
 			Port:     getEnvAsInt("RABBITMQ_PORT", 5672),
 			User:     getEnv("RABBITMQ_USER", "opensame"),
 			Password: getEnv("RABBITMQ_PASS", "opensame_password"),
-			VHost:    getEnv("RABBITMQ_VHOST", "/"),
 		},
 		JWT: JWTConfig{
-			Secret:          getEnv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production"),
-			AccessTokenTTL:  getEnvAsDuration("JWT_ACCESS_TTL", 15*time.Minute),
-			RefreshTokenTTL: getEnvAsDuration("JWT_REFRESH_TTL", 7*24*time.Hour),
-			Issuer:          getEnv("JWT_ISSUER", "open-same"),
+			Secret:           getEnv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production"),
+			ExpirationHours: getEnvAsInt("JWT_EXPIRATION_HOURS", 24),
+			RefreshHours:     getEnvAsInt("JWT_REFRESH_HOURS", 168), // 7 days
 		},
-		AI:          LoadAIConfig(),
-		RateLimit:   getEnvAsFloat("RATE_LIMIT", 100.0),
-		Logging: LoggingConfig{
-			Level:      getEnv("LOG_LEVEL", "info"),
-			Format:     getEnv("LOG_FORMAT", "json"),
-			OutputPath: getEnv("LOG_OUTPUT", "stdout"),
+		AI: AIConfig{
+			OpenAIKey:      getEnv("OPENAI_API_KEY", ""),
+			OpenAIModel:    getEnv("OPENAI_MODEL", "gpt-4"),
+			AnthropicKey:   getEnv("ANTHROPIC_API_KEY", ""),
+			AnthropicModel: getEnv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229"),
+			MaxTokens:      getEnvAsInt("AI_MAX_TOKENS", 4000),
+			Temperature:    getEnvAsFloat("AI_TEMPERATURE", 0.7),
 		},
+		RateLimit: getEnvAsFloat("RATE_LIMIT", 100.0), // requests per second
 	}
-
-	return config
 }
 
+// Helper functions
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

@@ -1,349 +1,209 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@hooks/useAuth'
-import { useAI } from '@hooks/useAI'
-import { Button } from '@components/ui/Button'
-import { Card } from '@components/ui/Card'
-import { Badge } from '@components/ui/Badge'
-import { Input } from '@components/ui/Input'
+import { Link } from 'react-router-dom'
 import { 
   Plus, 
-  Sparkles, 
   FileText, 
-  Code, 
-  Image, 
   Users, 
+  TrendingUp, 
   Clock, 
   Star,
-  TrendingUp,
-  Lightbulb,
-  Zap,
-  Brain,
   Search,
   Filter,
   Grid,
-  List,
-  Menu,
-  X,
-  Smartphone
+  List
 } from 'lucide-react'
-
-interface ContentItem {
-  id: string
-  title: string
-  type: 'document' | 'code' | 'diagram' | 'template'
-  description: string
-  lastModified: string
-  collaborators: number
-  isPublic: boolean
-  aiGenerated: boolean
-}
+import { useAuth } from '@contexts/AuthContext'
+import { useQuery } from '@tanstack/react-query'
+import { api, endpoints } from '@services/api'
+import { Content, ContentType } from '@types/models'
+import { Button } from '@components/ui/Button'
+import { Input } from '@components/ui/Input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/Card'
+import { Badge } from '@components/ui/Badge'
+import { Avatar } from '@components/ui/Avatar'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/Tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/Select'
 
 export const DashboardPage: React.FC = () => {
-  const navigate = useNavigate()
   const { user } = useAuth()
-  const { isAvailable, modelStatus } = useAI()
-  
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedType, setSelectedType] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [recentContent, setRecentContent] = useState<ContentItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [activeMobileTab, setActiveMobileTab] = useState<'content' | 'ai' | 'search'>('content')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedType, setSelectedType] = useState<ContentType | 'all'>('all')
+  const [selectedStatus, setSelectedStatus] = useState<string>('all')
 
-  // Sample content data (in real app, this would come from API)
-  useEffect(() => {
-    const loadContent = async () => {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+  // Fetch user's content
+  const { data: contentData, isLoading: contentLoading } = useQuery({
+    queryKey: ['user-content', searchQuery, selectedType, selectedStatus],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (searchQuery) params.append('search', searchQuery)
+      if (selectedType !== 'all') params.append('type', selectedType)
+      if (selectedStatus !== 'all') params.append('status', selectedStatus)
       
-      setRecentContent([
-        {
-          id: '1',
-          title: 'AI-Powered Business Proposal',
-          type: 'document',
-          description: 'Professional business proposal generated with AI assistance',
-          lastModified: '2 hours ago',
-          collaborators: 3,
-          isPublic: false,
-          aiGenerated: true
-        },
-        {
-          id: '2',
-          title: 'React Component Library',
-          type: 'code',
-          description: 'Reusable React components with TypeScript',
-          lastModified: '1 day ago',
-          collaborators: 2,
-          isPublic: true,
-          aiGenerated: false
-        },
-        {
-          id: '3',
-          title: 'System Architecture Diagram',
-          type: 'diagram',
-          description: 'Microservices architecture visualization',
-          lastModified: '3 days ago',
-          collaborators: 5,
-          isPublic: false,
-          aiGenerated: true
-        },
-        {
-          id: '4',
-          title: 'Project Management Template',
-          type: 'template',
-          description: 'AI-generated project planning template',
-          lastModified: '1 week ago',
-          collaborators: 1,
-          isPublic: true,
-          aiGenerated: true
-        }
-      ])
-      setIsLoading(false)
-    }
-
-    loadContent()
-  }, [])
-
-  const handleCreateNew = (type: string) => {
-    navigate(`/editor?type=${type}`)
-  }
-
-  const handleContentClick = (content: ContentItem) => {
-    navigate(`/editor/${content.id}`)
-  }
-
-  const filteredContent = recentContent.filter(content => {
-    const matchesSearch = content.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         content.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesType = selectedType === 'all' || content.type === selectedType
-    return matchesSearch && matchesType
+      const response = await api.get(`${endpoints.content.list}?${params.toString()}`)
+      return response.data.data
+    },
+    enabled: !!user,
   })
 
-  const getTypeIcon = (type: string) => {
+  // Fetch recent collaborations
+  const { data: collaborations, isLoading: collaborationsLoading } = useQuery({
+    queryKey: ['collaborations'],
+    queryFn: async () => {
+      const response = await api.get(endpoints.collaboration.list)
+      return response.data.data
+    },
+    enabled: !!user,
+  })
+
+  // Fetch public content
+  const { data: publicContent, isLoading: publicLoading } = useQuery({
+    queryKey: ['public-content'],
+    queryFn: async () => {
+      const response = await api.get(endpoints.content.public)
+      return response.data.data
+    },
+  })
+
+  const getContentIcon = (type: ContentType) => {
     switch (type) {
-      case 'document': return <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-      case 'code': return <Code className="w-4 h-4 sm:w-5 sm:h-5" />
-      case 'diagram': return <Image className="w-4 h-4 sm:w-5 sm:h-5" />
-      case 'template': return <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-      default: return <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+      case 'code':
+        return '💻'
+      case 'diagram':
+        return '📊'
+      case 'image':
+        return '🖼️'
+      case 'document':
+        return '📄'
+      case 'template':
+        return '📋'
+      default:
+        return '📝'
     }
   }
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'document': return 'bg-blue-100 text-blue-800'
-      case 'code': return 'bg-green-100 text-green-800'
-      case 'diagram': return 'bg-purple-100 text-purple-800'
-      case 'template': return 'bg-orange-100 text-orange-800'
-      default: return 'bg-gray-100 text-gray-800'
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'published':
+        return 'bg-green-100 text-green-800'
+      case 'draft':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'archived':
+        return 'bg-gray-100 text-gray-800'
+      default:
+        return 'bg-blue-100 text-blue-800'
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-sm sm:text-base text-gray-600">Loading your AI-powered workspace...</p>
-        </div>
-      </div>
-    )
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = Math.abs(now.getTime() - date.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 1) return 'Today'
+    if (diffDays === 2) return 'Yesterday'
+    if (diffDays < 7) return `${diffDays - 1} days ago`
+    return date.toLocaleDateString()
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header */}
-      <div className="sm:hidden bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Smartphone className="w-5 h-5 text-blue-600" />
-            <h1 className="text-lg font-bold text-gray-900">Open-Same</h1>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600">Welcome back, {user?.first_name || user?.username}!</p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
-        </div>
-
-        {/* Mobile Tab Navigation */}
-        <div className="flex bg-white border-b border-gray-200">
-          <button
-            onClick={() => setActiveMobileTab('content')}
-            className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-              activeMobileTab === 'content'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Content
-          </button>
-          <button
-            onClick={() => setActiveMobileTab('ai')}
-            className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-              activeMobileTab === 'ai'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            AI Tools
-          </button>
-          <button
-            onClick={() => setActiveMobileTab('search')}
-            className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-              activeMobileTab === 'search'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Search
-          </button>
+          <Link to="/create">
+            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Content
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Desktop Header */}
-      <div className="hidden sm:block bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {user?.firstName || user?.username}!
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Your AI-powered content creation workspace
+      <div className="px-6 py-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Content</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{contentData?.total || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {contentData?.data?.length || 0} items created
               </p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {isAvailable && (
-                <Badge variant="secondary" className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-green-500" />
-                  AI Available
-                </Badge>
-              )}
-              <Button onClick={() => navigate('/profile')}>
-                Profile
-              </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Collaborations</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{collaborations?.length || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                Active collaborations
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Public Content</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {contentData?.data?.filter((c: Content) => c.is_public).length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Published items
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {contentData?.data?.filter((c: Content) => {
+                  const date = new Date(c.updated_at)
+                  const now = new Date()
+                  const diffDays = Math.ceil(Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+                  return diffDays <= 7
+                }).length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Updated this week
+              </p>
+            </CardContent>
+          </Card>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* AI Quick Actions - Mobile */}
-        {isAvailable && activeMobileTab === 'ai' && (
-          <div className="sm:hidden mb-6">
-            <Card className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
-              <div className="flex items-center gap-3 mb-4">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                <h2 className="text-lg font-semibold text-gray-900">AI Quick Actions</h2>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  className="h-auto p-3 flex flex-col items-center gap-2 bg-white hover:bg-purple-50"
-                  onClick={() => handleCreateNew('document')}
-                >
-                  <FileText className="w-6 h-6 text-blue-600" />
-                  <span className="text-sm font-medium">AI Document</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto p-3 flex flex-col items-center gap-2 bg-white hover:bg-purple-50"
-                  onClick={() => handleCreateNew('code')}
-                >
-                  <Code className="w-6 h-6 text-green-600" />
-                  <span className="text-sm font-medium">AI Code</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto p-3 flex flex-col items-center gap-2 bg-white hover:bg-purple-50"
-                  onClick={() => handleCreateNew('diagram')}
-                >
-                  <Image className="w-6 h-6 text-purple-600" />
-                  <span className="text-sm font-medium">AI Diagram</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto p-3 flex flex-col items-center gap-2 bg-white hover:bg-purple-50"
-                  onClick={() => handleCreateNew('template')}
-                >
-                  <FileText className="w-6 h-6 text-orange-600" />
-                  <span className="text-sm font-medium">AI Template</span>
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
+        {/* Main Content */}
+        <Tabs defaultValue="my-content" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="my-content">My Content</TabsTrigger>
+            <TabsTrigger value="collaborations">Collaborations</TabsTrigger>
+            <TabsTrigger value="discover">Discover</TabsTrigger>
+          </TabsList>
 
-        {/* AI Quick Actions - Desktop */}
-        {isAvailable && (
-          <div className="hidden sm:block mb-8">
-            <Card className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
-              <div className="flex items-center gap-3 mb-4">
-                <Sparkles className="w-6 h-6 text-purple-600" />
-                <h2 className="text-xl font-semibold text-gray-900">AI Quick Actions</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-white hover:bg-purple-50"
-                  onClick={() => handleCreateNew('document')}
-                >
-                  <FileText className="w-8 h-8 text-blue-600" />
-                  <span className="font-medium">AI Document</span>
-                  <span className="text-sm text-gray-500">Generate professional content</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-white hover:bg-purple-50"
-                  onClick={() => handleCreateNew('code')}
-                >
-                  <Code className="w-8 h-8 text-green-600" />
-                  <span className="font-medium">AI Code</span>
-                  <span className="text-sm text-gray-500">Generate clean code</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-white hover:bg-purple-50"
-                  onClick={() => handleCreateNew('diagram')}
-                >
-                  <Image className="w-8 h-8 text-purple-600" />
-                  <span className="font-medium">AI Diagram</span>
-                  <span className="text-sm text-gray-500">Create visual diagrams</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-white hover:bg-purple-50"
-                  onClick={() => handleCreateNew('template')}
-                >
-                  <FileText className="w-8 h-8 text-orange-600" />
-                  <span className="font-medium">AI Template</span>
-                  <span className="text-sm text-gray-500">Generate templates</span>
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Search and Filters - Mobile */}
-        {activeMobileTab === 'search' && (
-          <div className="sm:hidden mb-6">
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          {/* My Content Tab */}
+          <TabsContent value="my-content" className="space-y-6">
+            {/* Filters and Search */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   placeholder="Search your content..."
                   value={searchQuery}
@@ -352,206 +212,246 @@ export const DashboardPage: React.FC = () => {
                 />
               </div>
               
-              <div className="flex gap-2">
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="all">All Types</option>
-                  <option value="document">Documents</option>
-                  <option value="code">Code</option>
-                  <option value="diagram">Diagrams</option>
-                  <option value="template">Templates</option>
-                </select>
-                
+              <Select value={selectedType} onValueChange={(value) => setSelectedType(value as ContentType | 'all')}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Content Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="text">Text</SelectItem>
+                  <SelectItem value="code">Code</SelectItem>
+                  <SelectItem value="diagram">Diagram</SelectItem>
+                  <SelectItem value="image">Image</SelectItem>
+                  <SelectItem value="document">Document</SelectItem>
+                  <SelectItem value="template">Template</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex border rounded-md">
                 <Button
-                  variant="outline"
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                  onClick={() => setViewMode('grid')}
+                  className="rounded-r-none"
                 >
-                  {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
+                  <Grid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="rounded-l-none"
+                >
+                  <List className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Search and Filters - Desktop */}
-        <div className="hidden sm:flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <Input
-              placeholder="Search your content..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          
-          <div className="flex gap-2">
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Types</option>
-              <option value="document">Documents</option>
-              <option value="code">Code</option>
-              <option value="diagram">Diagrams</option>
-              <option value="template">Templates</option>
-            </select>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-            >
-              {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
-            </Button>
-          </div>
-        </div>
-
-        {/* Content Grid/List */}
-        <div className={`${activeMobileTab === 'content' ? 'block' : 'hidden'} sm:block space-y-6`}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Recent Content</h2>
-            <Button 
-              onClick={() => handleCreateNew('document')} 
-              className="flex items-center gap-2 text-sm sm:text-base"
-              size="sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Create New</span>
-              <span className="sm:hidden">New</span>
-            </Button>
-          </div>
-
-          {filteredContent.length === 0 ? (
-            <Card className="p-8 sm:p-12 text-center">
-              <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No content found</h3>
-              <p className="text-sm sm:text-base text-gray-600 mb-6">
-                {searchQuery || selectedType !== 'all' 
-                  ? 'Try adjusting your search or filters'
-                  : 'Get started by creating your first piece of content'
-                }
-              </p>
-              <Button onClick={() => handleCreateNew('document')} size="sm">
-                Create Your First Content
-              </Button>
-            </Card>
-          ) : (
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' : 'space-y-3 sm:space-y-4'}>
-              {filteredContent.map((content) => (
-                <Card
-                  key={content.id}
-                  className={`p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow ${
-                    viewMode === 'list' ? 'flex items-center gap-4' : ''
-                  }`}
-                  onClick={() => handleContentClick(content)}
-                >
-                  <div className={`flex items-center gap-3 mb-3 ${viewMode === 'list' ? 'mb-0' : ''}`}>
-                    <div className={`p-2 rounded-lg ${getTypeColor(content.type)}`}>
-                      {getTypeIcon(content.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                        <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{content.title}</h3>
-                        {content.aiGenerated && (
-                          <Badge variant="secondary" className="text-xs flex-shrink-0">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            AI
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{content.description}</p>
-                    </div>
-                  </div>
-                  
-                  <div className={`flex items-center justify-between text-xs sm:text-sm text-gray-500 ${
-                    viewMode === 'list' ? 'ml-12' : ''
-                  }`}>
-                    <div className="flex items-center gap-2 sm:gap-4">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span className="hidden sm:inline">{content.lastModified}</span>
-                        <span className="sm:hidden">{content.lastModified.split(' ')[0]}</span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                        {content.collaborators}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {content.isPublic && (
-                        <Badge variant="outline" className="text-xs">
-                          Public
+            {/* Content Grid/List */}
+            {contentLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : contentData?.data?.length === 0 ? (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No content yet</h3>
+                  <p className="text-gray-600 mb-4">Start creating your first piece of content</p>
+                  <Link to="/create">
+                    <Button>Create Content</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+                {contentData?.data?.map((content: Content) => (
+                  <Card key={content.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-2xl">{getContentIcon(content.type)}</span>
+                          <div>
+                            <CardTitle className="text-lg">{content.title}</CardTitle>
+                            <CardDescription className="text-sm">
+                              {content.description || 'No description'}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <Badge className={getStatusColor(content.status)}>
+                          {content.status}
                         </Badge>
-                      )}
-                      <Badge variant="outline" className={`text-xs ${getTypeColor(content.type)}`}>
-                        {content.type}
-                      </Badge>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <span>Type: {content.type}</span>
+                          <span>v{content.version}</span>
+                        </div>
+                        
+                        {content.tags && content.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {content.tags.slice(0, 3).map((tag, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {content.tags.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{content.tags.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
 
-        {/* AI Status - Mobile */}
-        {isAvailable && activeMobileTab === 'ai' && (
-          <div className="sm:hidden mt-6">
-            <Card className="p-4 bg-gray-50">
-              <div className="flex items-center gap-3 mb-4">
-                <Brain className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">AI Status</h2>
-              </div>
-              
-              <div className="space-y-3">
-                {Object.entries(modelStatus).map(([provider, status]) => (
-                  <div key={provider} className="flex items-center gap-3 p-3 bg-white rounded-lg">
-                    <div className={`w-3 h-3 rounded-full ${
-                      status?.available ? 'bg-green-500' : 'bg-red-500'
-                    }`} />
-                    <div>
-                      <p className="font-medium capitalize text-sm">{provider}</p>
-                      <p className="text-xs text-gray-600">{status?.model || 'Not configured'}</p>
-                    </div>
-                  </div>
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <span>Updated {formatDate(content.updated_at)}</span>
+                          {content.is_public && (
+                            <Badge variant="outline" className="text-xs">
+                              Public
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex space-x-2">
+                          <Link to={`/editor/${content.id}`} className="flex-1">
+                            <Button variant="outline" size="sm" className="w-full">
+                              Edit
+                            </Button>
+                          </Link>
+                          <Button variant="outline" size="sm">
+                            <Users className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-            </Card>
-          </div>
-        )}
+            )}
+          </TabsContent>
 
-        {/* AI Status - Desktop */}
-        {isAvailable && (
-          <div className="hidden sm:block mt-8">
-            <Card className="p-6 bg-gray-50">
-              <div className="flex items-center gap-3 mb-4">
-                <Brain className="w-6 h-6 text-blue-600" />
-                <h2 className="text-xl font-semibold text-gray-900">AI Model Status</h2>
+          {/* Collaborations Tab */}
+          <TabsContent value="collaborations" className="space-y-6">
+            {collaborationsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {Object.entries(modelStatus).map(([provider, status]) => (
-                  <div key={provider} className="flex items-center gap-3 p-3 bg-white rounded-lg">
-                    <div className={`w-3 h-3 rounded-full ${
-                      status?.available ? 'bg-green-500' : 'bg-red-500'
-                    }`} />
-                    <div>
-                      <p className="font-medium capitalize">{provider}</p>
-                      <p className="text-sm text-gray-600">{status?.model || 'Not configured'}</p>
-                    </div>
-                  </div>
+            ) : collaborations?.length === 0 ? (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No collaborations yet</h3>
+                  <p className="text-gray-600">You haven't been invited to collaborate on any content yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {collaborations?.map((collab: any) => (
+                  <Card key={collab.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Avatar
+                            src={collab.content?.user?.avatar}
+                            fallback={collab.content?.user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                            className="w-10 h-10"
+                          />
+                          <div>
+                            <h4 className="font-medium">{collab.content?.title}</h4>
+                            <p className="text-sm text-gray-500">
+                              by {collab.content?.user?.username} • {collab.role}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">{collab.content?.type}</Badge>
+                          <Link to={`/editor/${collab.content?.id}`}>
+                            <Button size="sm">Open</Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-            </Card>
-          </div>
-        )}
+            )}
+          </TabsContent>
+
+          {/* Discover Tab */}
+          <TabsContent value="discover" className="space-y-6">
+            {publicLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : publicContent?.data?.length === 0 ? (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <Star className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No public content</h3>
+                  <p className="text-gray-600">There's no public content available to discover yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {publicContent?.data?.slice(0, 9).map((content: Content) => (
+                  <Card key={content.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-2xl">{getContentIcon(content.type)}</span>
+                        <div>
+                          <CardTitle className="text-lg">{content.title}</CardTitle>
+                          <CardDescription className="text-sm">
+                            by {content.user?.username}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {content.description || 'No description available'}
+                        </p>
+                        
+                        {content.tags && content.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {content.tags.slice(0, 3).map((tag, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <span>{content.type}</span>
+                          <span>{formatDate(content.created_at)}</span>
+                        </div>
+
+                        <Button variant="outline" size="sm" className="w-full">
+                          View Content
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
