@@ -5,3 +5,6 @@ compatibility_date = "2024-11-01"
 # For local dev, you can export an env var or uncomment the line below.
 # [vars]
 # OPENAI_API_KEY = "your-local-dev-key"
+
+# Explicitly set Pages output directory to avoid config mismatch during deploy
+pages_build_output_dir = "public"

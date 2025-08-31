@@ -3,7 +3,10 @@ export async function onRequestPost({ request, env }) {
     if (!env || !env.OPENAI_API_KEY) {
       return new Response(JSON.stringify({ error: 'Missing OPENAI_API_KEY' }), {
         status: 500,
-        headers: { 'content-type': 'application/json' }
+        headers: {
+          'content-type': 'application/json',
+          'access-control-allow-origin': '*'
+        }
       });
     }
 
@@ -12,7 +15,10 @@ export async function onRequestPost({ request, env }) {
     if (!userMessage) {
       return new Response(JSON.stringify({ error: 'message is required' }), {
         status: 400,
-        headers: { 'content-type': 'application/json' }
+        headers: {
+          'content-type': 'application/json',
+          'access-control-allow-origin': '*'
+        }
       });
     }
 
@@ -35,7 +41,10 @@ export async function onRequestPost({ request, env }) {
 
     if (!response.ok) {
       const errText = await response.text();
-      return new Response(errText, { status: response.status });
+      return new Response(errText, {
+        status: response.status,
+        headers: { 'access-control-allow-origin': '*' }
+      });
     }
 
     const data = await response.json();
@@ -45,12 +54,29 @@ export async function onRequestPost({ request, env }) {
 
     return new Response(JSON.stringify({ reply }), {
       status: 200,
-      headers: { 'content-type': 'application/json' }
+      headers: {
+        'content-type': 'application/json',
+        'access-control-allow-origin': '*'
+      }
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Unexpected error' }), {
       status: 500,
-      headers: { 'content-type': 'application/json' }
+      headers: {
+        'content-type': 'application/json',
+        'access-control-allow-origin': '*'
+      }
     });
   }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'POST, OPTIONS',
+      'access-control-allow-headers': 'content-type, authorization'
+    }
+  });
 }
