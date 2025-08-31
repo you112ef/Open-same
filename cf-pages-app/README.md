@@ -39,3 +39,13 @@ npm run deploy
 ```
 
 Wrangler will upload `public/` and include functions from `functions/`.
+
+## Automatic deployment (GitHub Actions)
+
+1. Push this folder to GitHub.
+2. Add repository secrets (Settings → Secrets and variables → Actions):
+   - `CLOUDFLARE_API_TOKEN` (scopes: Account.Pages:Edit)
+   - `CLOUDFLARE_ACCOUNT_ID` (from Cloudflare dashboard)
+   - `CF_PAGES_PROJECT` (your Pages project name, e.g. `cf-pages-chat`)
+   - `OPENAI_API_KEY` (used by the Pages Function)
+3. The workflow at `.github/workflows/deploy.yml` deploys on pushes to `main`.
