@@ -1,0 +1,12 @@
+{
+  "name": "cf-pages-app",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "wrangler pages dev ./public --compatibility-date=2024-11-01",
+    "deploy": "wrangler pages deploy ./public"
+  },
+  "devDependencies": {
+    "wrangler": "^3.75.0"
+  }
+}
