@@ -1,0 +1,7 @@
+name = "cf-pages-app"
+compatibility_date = "2024-11-01"
+
+# For Pages Functions, set OPENAI_API_KEY as a secret in Cloudflare Pages project settings.
+# For local dev, you can export an env var or uncomment the line below.
+# [vars]
+# OPENAI_API_KEY = "your-local-dev-key"
