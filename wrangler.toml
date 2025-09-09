@@ -4,10 +4,12 @@ compatibility_flags = ["nodejs_compat"]
 
 [env.production]
 name = "open-same-prod"
+# TODO: Replace with your production domain
 route = "your-domain.com/*"
 
 [env.staging]
 name = "open-same-staging"
+# TODO: Replace with your staging domain
 route = "staging.your-domain.com/*"
 
 [build]
@@ -23,10 +25,12 @@ bucket = "frontend/dist"
 
 [env.production.vars]
 ENVIRONMENT = "production"
+# TODO: Replace with your production backend API URL
 API_URL = "https://your-backend-api.com"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
+# TODO: Replace with your staging backend API URL
 API_URL = "https://staging-backend-api.com"
 
 # Functions (if you want to add serverless functions)

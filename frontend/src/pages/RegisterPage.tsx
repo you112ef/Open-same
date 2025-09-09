@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { login } from '../services/api';
+import { register } from '../services/api';
 
-export const LoginPage: React.FC = () => {
+export const RegisterPage: React.FC = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -10,19 +11,28 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setError('');
     try {
-      const response = await login({ email, password });
+      const response = await register({ name, email, password });
       console.log(response.data);
-      // TODO: Handle successful login (e.g., redirect, save token)
+      // TODO: Handle successful registration (e.g., redirect, show message)
     } catch (err) {
-      setError('Failed to login. Please check your credentials.');
+      setError('Failed to register. Please try again.');
       console.error(err);
     }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-      <h1>Login Page</h1>
+      <h1>Register Page</h1>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', width: '300px' }}>
+        <label htmlFor="name">Name</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ marginBottom: '10px' }}
+        />
         <label htmlFor="email">Email</label>
         <input
           type="email"
@@ -42,7 +52,7 @@ export const LoginPage: React.FC = () => {
           style={{ marginBottom: '10px' }}
         />
         {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit">Login</button>
+        <button type="submit">Register</button>
       </form>
     </div>
   );
